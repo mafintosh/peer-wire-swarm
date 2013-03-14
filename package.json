@@ -1,0 +1,8 @@
+{
+  "name": "torrent-swarm",
+  "version": "0.0.1",
+  "description":"a torrent swarm implementation that uses the DHT to find peers",
+  "dependencies": {
+    "bncode": "~0.2.3"
+  }
+}
