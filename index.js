@@ -56,6 +56,8 @@ var Swarm = function(infoHash, options, onconnection) {
 
 	this.infoHash = typeof infoHash === 'string' ? new Buffer(infoHash, 'hex') : infoHash;
 	this.maxSize = options.maxSize || 30;
+	this.maxNodes = options.maxNodes || 2500;
+
 	this.connections = [];
 
 	this._nextPeers = [];
@@ -107,7 +109,7 @@ Swarm.prototype.addPeer = function(peer) {
 Swarm.prototype.addNode = function(node) {
 	var id = node.id || node.host+':'+node.port;
 
-	if (Object.keys(this._discoveredNodes).length >= 2000) return this._findPeers();
+	if (Object.keys(this._discoveredNodes).length >= this.maxNodes) return this._findPeers();
 	if (this._discoveredNodes[id]) return this._findPeers();
 
 	this._discoveredNodes[id] = {time:Date.now(), node:node};
