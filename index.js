@@ -122,6 +122,10 @@ Swarm.prototype.listen = function() {
 	var addPeer = this.addPeer.bind(this);
 	var addNode = this.addNode.bind(this);
 
+	this._dht.on('error', function(err) {
+		// do nothing...
+	});
+
 	this._dht.on('message', function(message) {
 		try {
 			message = bncode.decode(message);
