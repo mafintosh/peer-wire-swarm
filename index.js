@@ -1,3 +1,5 @@
+// TODO: refactor this completely!
+
 var dgram = require('dgram');
 var crypto = require('crypto');
 var net = require('net');
@@ -66,6 +68,7 @@ var Swarm = function(infoHash, options, onconnection) {
 	this._discoveredNodes = {};
 	this._nodeId = RANDOM_BYTES.slice(randomOffset, randomOffset+20);
 	this._reconnects = {};
+	this._reconnecting = {};
 
 	randomOffset = (randomOffset + 20) % RANDOM_BYTES.length;
 
@@ -93,8 +96,9 @@ Swarm.prototype.__defineGetter__('queued', function() {
 
 Swarm.prototype.reconnect = function(peer) {
 	if (typeof peer === 'string') return this.reconnect({host:peer.split(':')[0], port:parseInt(peer.split(':')[1],10)});
-	this._nextPeers.push(peer);
-	this._connectPeers();
+	var id = peer.host+':'+peer.port;
+	this._reconnects[id] = 0;
+	this._reconnect(id, peer);
 };
 
 Swarm.prototype.addPeer = function(peer) {
@@ -190,6 +194,7 @@ Swarm.prototype._connectPeers = function() {
 	var onend = function() {
 		var index = self.connections.indexOf(socket);
 		if (index > -1) self.connections.splice(index, 1);
+		if (index > -1 && self._reconnects[id]) self._reconnect(id, peer);
 		self._connectPeers();
 	};
 
@@ -217,6 +222,21 @@ Swarm.prototype._findPeers = function() {
 
 	this._dht.send(message, 0, message.length, node.port, node.host);
 	this._sent[t] = {node:node, message:message, time:Date.now(), tries:1};
+};
+
+
+Swarm.prototype._reconnect = function(id, peer) {
+	if (this._reconnecting[id]) return;
+
+	var self = this;
+	var reconnect = function() {
+		self._reconnecting[id] = null;
+		self._nextPeers.push(peer);
+		self._connectPeers();
+	};
+
+	this._reconnects[id] = (this._reconnects[id] || 0) + 1;
+	this._reconnecting[id] = setTimeout(reconnect, this._reconnects[id] * 5000);
 };
 
 module.exports = Swarm;
