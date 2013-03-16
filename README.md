@@ -1,19 +1,19 @@
-# torrent-swarm
+# peer-swarm
 
-a torrent swarm implementation that uses the DHT to find peers
+a peer swarm implementation that uses the torrent DHT to find peers
 
-	npm install torrent-dht
+	npm install peer-swarm
 
 # usage
 
 ``` js
-var swarm = require('torrent-swarm');
-var nodes = swarm(myInfoHash);
+var peerSwarm = require('peer-swarm');
+var swarm = peerSwarm(myInfoHash);
 
-nodes.on('connection', function(connection) {
+swarm.on('connection', function(connection) {
 	// a relevant connection has appeared
 	// you should pipe this to a torrent protocol stream
 });
 
-nodes.listen();
+swarm.listen();
 ```
