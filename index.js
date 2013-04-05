@@ -3,8 +3,10 @@
 var dgram = require('dgram');
 var crypto = require('crypto');
 var net = require('net');
-var events = require('events');
+var EventEmitter = require('events').EventEmitter;
 var bncode = require('bncode');
+
+var inherits = require('util').inherits;
 
 var RANDOM_BYTES = crypto.randomBytes(20*1024);
 
@@ -47,7 +49,7 @@ var randomOffset = 0;
 var Swarm = function(infoHash, options, onconnection) {
 	if (!(this instanceof Swarm)) return new Swarm(infoHash, options, onconnection);
 
-	events.EventEmitter.call(this);
+	EventEmitter.call(this);
 
 	if (typeof options === 'function') {
 		onconnection = options;
@@ -80,7 +82,7 @@ var Swarm = function(infoHash, options, onconnection) {
 	if (onconnection) this.on('connection', onconnection);
 };
 
-Swarm.prototype.__proto__ = events.EventEmitter.prototype;
+inherits(Swarm, EventEmitter);
 
 Swarm.prototype.__defineGetter__('nodesFound', function() {
 	return Object.keys(this._discoveredNodes).length;
