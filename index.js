@@ -7,7 +7,7 @@ var compact2string = require('compact2string');
 var bncode = require('bncode');
 
 var MAX_NODES = 5000;
-var TIMEOUT = 10000;
+var TIMEOUT = 5000;
 
 var randomId = function() {
 	var bytes = crypto.randomBytes(2000);
