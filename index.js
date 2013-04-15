@@ -1,5 +1,4 @@
 var EventEmitter = require('events').EventEmitter;
-var parseUrl = require('url').parse;
 var crypto = require('crypto');
 var dgram = require('dgram');
 var net = require('net');
@@ -84,8 +83,8 @@ var Swarm = function(infoHash, options, onconnection) {
 			return;
 		}
 
-		var nodes = message.r && message.r.nodes;
-		var values = message.r && message.r.values;
+		var nodes = message && message.r && message.r.nodes;
+		var values = message && message.r && message.r.values;
 
 		if (nodes) parseNodeInfo(nodes).forEach(node);
 		if (values) parsePeerInfo(values).forEach(peer);
