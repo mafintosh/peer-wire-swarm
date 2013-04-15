@@ -1,6 +1,6 @@
 {
   "name": "peer-swarm",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "a peer swarm implementation that uses the torrent DHT to find peers",
   "dependencies": {
     "bncode": "~0.2.3",
