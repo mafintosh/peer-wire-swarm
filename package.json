@@ -1,5 +1,5 @@
 {
-  "name": "peer-swarm",
+  "name": "peer-wire-swarm",
   "version": "0.0.7",
   "description": "a peer swarm implementation that uses the torrent DHT to find peers",
   "dependencies": {
