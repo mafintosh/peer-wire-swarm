@@ -8,6 +8,7 @@ var bncode = require('bncode');
 
 var MAX_NODES = 5000;
 var TIMEOUT = 5000;
+var MAX_PARALLEL = 10;
 
 var randomId = function() {
 	var bytes = crypto.randomBytes(2000);
@@ -63,6 +64,7 @@ var Swarm = function(infoHash, options, onconnection) {
 	this._visitedPeers = {};
 
 	this.queue = [];
+	this.nodesQueue = [];
 	this.connections = [];
 	this.prioritized = {};
 	this.reconnecting = {};
@@ -88,9 +90,6 @@ var Swarm = function(infoHash, options, onconnection) {
 
 		if (nodes) parseNodeInfo(nodes).forEach(node);
 		if (values) parsePeerInfo(values).forEach(peer);
-	
-		if (Object.keys(self._visitedPeers).length > self.maxSize*2)
-			self._sock.close();
 	});
 
 	if (onconnection) this.on('connection', onconnection);
@@ -129,6 +128,7 @@ Swarm.prototype.peer = function(peer) {
 Swarm.prototype.node = function(addr) {
 	if (this._visitedNodes[addr]) return;
 	if (Object.keys(this._visitedNodes).length >= MAX_NODES) return;
+	if (this.queue.length) return this.nodesQueue.push(addr);
 
 	var t = ''+(this._t++);
 	var message = bncode.encode({t:t,y:'q',q:'get_peers',a:{id:this.nodeId,info_hash:this.infoHash}});
@@ -151,6 +151,7 @@ Swarm.prototype._connect = function() {
 	var onclose = once(function() {
 		self.connections.splice(self.connections.indexOf(socket), 1);
 		self._connect();
+		if (!self.queued.length && self.nodesQueue.length) self.node(self.nodesQueue.shift());
 		if (!connected) return;
 		self.reconnecting[peer]++;
 		setTimeout(self.connect.bind(self, peer), self.reconnecting[peer] * 5000);
