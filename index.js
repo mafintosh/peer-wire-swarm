@@ -88,6 +88,9 @@ var Swarm = function(infoHash, options, onconnection) {
 
 		if (nodes) parseNodeInfo(nodes).forEach(node);
 		if (values) parsePeerInfo(values).forEach(peer);
+	
+		if (Object.keys(self._visitedPeers).length > self.maxSize*2)
+			self._sock.close();
 	});
 
 	if (onconnection) this.on('connection', onconnection);
