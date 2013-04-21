@@ -165,11 +165,7 @@ Swarm.prototype.connect = function() {
 	});
 
 	var reconnect = function() {
-		if (wire.downloaded) {
-			self.queue.unshift(addr);
-		} else {
-			self.queue.push(addr);
-		}
+		self.queue.push(addr);
 		self.connect();
 	};
 
