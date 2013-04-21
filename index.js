@@ -1,19 +1,25 @@
-var EventEmitter = require('events').EventEmitter;
-var crypto = require('crypto');
-var dgram = require('dgram');
 var net = require('net');
 var once = require('once');
-var compact2string = require('compact2string');
+var dgram = require('dgram');
 var bncode = require('bncode');
+var crypto = require('crypto');
+var compact2string = require('compact2string');
+var wireProtocol = require('peer-wire-protocol');
+var EventEmitter = require('events').EventEmitter;
 
+var CONNECTION_TIMEOUT = 10000;
+var HANDSHAKE_TIMEOUT = 5000;
+var RECONNECT = 5000;
 var MAX_NODES = 5000;
-var TIMEOUT = 5000;
-var MAX_PARALLEL = 10;
+var BOOTSTRAP_NODES = [
+	'dht.transmissionbt.com:6881',
+	'router.bittorrent.com:6881',
+	'router.utorrent.com:6881'
+];
 
 var randomId = function() {
 	var bytes = crypto.randomBytes(2000);
 	var offset = 0;
-
 	return function() {
 		var id = bytes.slice(offset, offset + 20);
 		offset = (offset + 20) % bytes.length;
@@ -41,43 +47,39 @@ var parsePeerInfo = function(list) {
 	}
 };
 
-var Swarm = function(infoHash, options, onconnection) {
-	if (!(this instanceof Swarm)) return new Swarm(infoHash, options, onconnection);
+var remove = function(list, item) {
+	var i = list.indexOf(item);
+	if (i > -1) list.splice(i, 1);
+};
+
+var DHT = function(infoHash) {
 	EventEmitter.call(this);
 
-	if (typeof options === 'function') {
-		onconnection = options;
-		options = {};
-	}
+	var self = this;
+	var node = function(addr) {
+		if (self.nodes[addr]) return;
+		if (self.missing) return self.query(addr);
+		if (self.queue.length < 50) self.queue.push(addr);
+	};
+	var peer = function(addr) {
+		if (self.peers[addr]) return;
+		self.peers[addr] = true;
+		self.missing = Math.max(0, self.missing-1);
+		self.emit('peer', addr);
+	};
 
-	options = options || {};
-
-	if (typeof infoHash === 'string') infoHash = new Buffer(infoHash, 'hex');
-
-	this.maxSize = options.maxSize || 60;
+	this.nodes = {};
+	this.peers = {};
+	this.queue = [].concat(BOOTSTRAP_NODES);
+	this.nodesCount = 0;
+	this.missing = 0;
 	this.infoHash = infoHash;
 	this.nodeId = randomId();
+	this.message = bncode.encode({t:'1',y:'q',q:'get_peers',a:{id:this.nodeId,info_hash:this.infoHash}});
 
-	this._t = 0;
-	this._sock = dgram.createSocket('udp4');
-	this._visitedNodes = {};
-	this._visitedPeers = {};
-
-	this.queue = [];
-	this.nodesQueue = [];
-	this.connections = [];
-	this.prioritized = {};
-	this.reconnecting = {};
-
-	var self = this;
-	var node = this.node.bind(this);
-	var peer = this.peer.bind(this);
-
-	this._sock.on('error', function() {
-		// ... ignore error ...
-	});
-	this._sock.on('message', function(message, remote) {
-		self._visitedNodes[remote.address+':'+remote.port] = true;
+	this.socket = dgram.createSocket('udp4');
+	this.socket.on('message', function(message, remote) {
+		self.nodes[remote.address+':'+remote.port] = true;
 
 		try {
 			message = bncode.decode(message);
@@ -85,113 +87,146 @@ var Swarm = function(infoHash, options, onconnection) {
 			return;
 		}
 
-		var nodes = message && message.r && message.r.nodes;
-		var values = message && message.r && message.r.values;
+		var r = message && message.r;
+		var nodes = r && r.nodes || [];
+		var values = r && r.values || [];
 
-		if (nodes) parseNodeInfo(nodes).forEach(node);
-		if (values) parsePeerInfo(values).forEach(peer);
+		parsePeerInfo(values).forEach(peer);
+		parseNodeInfo(nodes).forEach(node);
 	});
+};
 
-	if (onconnection) this.on('connection', onconnection);
+DHT.prototype.__proto__ = EventEmitter.prototype;
+
+DHT.prototype.query = function(addr) {
+	if (Object.keys(this.nodes).length > MAX_NODES) return;
+	this.socket.send(this.message, 0, this.message.length, addr.split(':')[1], addr.split(':')[0]);
+};
+
+DHT.prototype.findPeers = function(num) {
+	this.missing += (num || 1);
+	while (this.queue.length) this.query(this.queue.pop());
+};
+
+DHT.prototype.close = function() {
+	this.socket.close();
+};
+
+var Swarm = function(infoHash, peerId, options) {
+	if (!(this instanceof Swarm)) return new Swarm(infoHash, peerId, options);
+	options = options || {};
+	var self = this;
+
+	this.infoHash = typeof infoHash === 'string' ? new Buffer(infoHash, 'hex') : infoHash;
+	this.peerId = typeof peerId === 'string' ? new Buffer(peerId) : peerId;
+	this.wires = [];
+	this.connections = [];
+
+	this.dht = new DHT(this.infoHash);
+	this.maxSize = options.maxSize || 30;
+	this.queue = [];
+	this.verified = {};
+
+	this.downloaded = 0;
+	this.uploaded = 0;
+
+	this.dht.on('peer', function(peer) {
+		self.queue.push(peer);
+		self.connect();
+	});
 };
 
 Swarm.prototype.__proto__ = EventEmitter.prototype;
 
-Swarm.prototype.listen = function() {
-	this.node('router.bittorrent.com:6881');
-	this.node('router.utorrent.com:6881');
-	this.node('dht.transmissionbt.com:6881');
-	return this;
-};
+Swarm.prototype.__defineGetter__('queued', function() {
+	return this.queue.length;
+});
 
-Swarm.prototype.connect = function(peer) {
-	if (this.prioritized[peer]) {
-		this.queue.unshift(peer);
-	} else {
-		this.queue.push(peer);
-	}
-
-	this._connect();
-};
-
-Swarm.prototype.reconnect = function(peer) {
-	this.prioritized[peer] = true;
-	this._connect();
-};
-
-Swarm.prototype.peer = function(peer) {
-	if (this._visitedPeers[peer]) return;
-	this._visitedPeers[peer] = true;
-	this.connect(peer);
-};
-
-Swarm.prototype.node = function(addr) {
-	if (this._visitedNodes[addr]) return;
-	if (Object.keys(this._visitedNodes).length >= MAX_NODES) return;
-	if (this.queue.length) return this.nodesQueue.push(addr);
-
-	var t = ''+(this._t++);
-	var message = bncode.encode({t:t,y:'q',q:'get_peers',a:{id:this.nodeId,info_hash:this.infoHash}});
-	var port = addr.split(':')[1];
-	var host = addr.split(':')[0];
-
-	this._sock.send(message, 0, message.length, port, host);
-};
-
-Swarm.prototype._connect = function() {
+Swarm.prototype.connect = function() {
 	if (!this.queue.length || this.connections.length >= this.maxSize) return;
 
 	var self = this;
-	var peer = this.queue.shift();
-	var port = peer.split(':')[1];
-	var host = peer.split(':')[0];
+	var addr = this.queue.shift();
+	var connected = false;
+	var socket = net.connect(addr.split(':')[1], addr.split(':')[0]);
+	var wire = wireProtocol();
 
-	var socket = net.connect(port, host);
+	wire.address = addr;
+	socket.pipe(wire).pipe(socket);
+	this.connections.push(socket);
 
-	var onclose = once(function() {
-		self.connections.splice(self.connections.indexOf(socket), 1);
-		self._connect();
-		if (!self.queued.length && self.nodesQueue.length) self.node(self.nodesQueue.shift());
-		if (!connected) return;
-		self.reconnecting[peer]++;
-		setTimeout(self.connect.bind(self, peer), self.reconnecting[peer] * 5000);
+	wire.on('download', function(bytes) {
+		self.downloaded += bytes;
+		self.emit('download', bytes);
+	});
+	wire.on('upload', function(bytes) {
+		self.uploaded += bytes;
+		self.emit('upload', bytes);
 	});
 
-	socket.on('error', onclose);
-	socket.on('close', onclose);
-	socket.on('end', function() {
-		socket.end(); // no half open
-		onclose();
-	});
-
-	var ontimeout = function() {
-		socket.destroy();
+	var reconnect = function() {
+		if (wire.downloaded) {
+			self.queue.unshift(addr);
+		} else {
+			self.queue.push(addr);
+		}
+		self.connect();
 	};
 
-	var timeout = setTimeout(ontimeout, TIMEOUT);
-	var connected = false;
-
-	socket.on('connect', function() {
-		connected = true;
-		clearTimeout(timeout);
-		self.reconnecting[peer] = 0;
-		self.emit('connection', socket, peer, peer);
+	var onclose = once(function() {
+		if (!self.dht.missing && self.queued < self.maxSize) self.dht.findPeers();
+		if (self.verified[addr] && !connected) setTimeout(reconnect, RECONNECT * ++self.verified[addr]);
+		socket.destroy();
+		remove(self.wires, wire);
+		remove(self.connections, socket);
+		self.connect();
 	});
 
-	this.connections.push(socket);
+	socket.on('close', onclose);
+	socket.on('error', onclose);
+	socket.on('end', onclose);
+
+	var timeout = setTimeout(onclose, CONNECTION_TIMEOUT);
+
+	socket.once('connect', function() {
+		clearTimeout(timeout);
+		timeout = setTimeout(onclose, HANDSHAKE_TIMEOUT);
+		connected = true;
+		self.verified[addr] = 1;
+		self.emit('connection', socket);
+		wire.once('handshake', function(infoHash, peerId) {
+			clearTimeout(timeout);
+			if (infoHash.toString('hex') !== self.infoHash.toString('hex')) return onclose();
+
+			wire.setKeepAlive();
+			wire.on('finish', function() {
+				onclose();
+				setTimeout(reconnect, RECONNECT);
+			});
+
+			self.wires.push(wire);
+			self.emit('wire', wire);
+		});
+		wire.handshake(self.infoHash, self.peerId);
+	});
 };
 
-// TODO: remove me
-Swarm.prototype.__defineGetter__('peersFound', function() {
-	return Object.keys(this._visitedPeers).length;
-});
+Swarm.prototype.size = function(maxSize) {
+	this.maxSize = maxSize || this.maxSize;
+	this.connect();
+	return this.maxSize;
+};
+
+Swarm.prototype.listen = function() {
+	this.dht.findPeers(this.maxSize);
+};
 
 Swarm.prototype.__defineGetter__('nodesFound', function() {
-	return Object.keys(this._visitedNodes).length;
+	return Object.keys(this.dht.nodes).length;
 });
 
-Swarm.prototype.__defineGetter__('queued', function() {
-	return this.queue.length;
+Swarm.prototype.__defineGetter__('peersFound', function() {
+	return Object.keys(this.dht.peers).length;
 });
 
 module.exports = Swarm;
