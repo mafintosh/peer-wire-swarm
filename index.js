@@ -6,6 +6,7 @@ var EventEmitter = require('events').EventEmitter;
 
 var HANDSHAKE_TIMEOUT = 5000;
 var RECONNECT_TIMEOUT = 5000;
+var DEFAULT_SIZE = 100;
 
 var toBuffer = function(str, encoding) {
 	return Buffer.isBuffer(str) ? str : new Buffer(str, encoding);
@@ -105,7 +106,7 @@ var Swarm = function(infoHash, peerId, options) {
 	options = options || {};
 
 	this.port = 0;
-	this.size = options.size || 60;
+	this.size = options.size || DEFAULT_SIZE;
 
 	this.infoHash = toBuffer(infoHash, 'hex');
 	this.peerId = toBuffer(peerId, 'utf-8');
