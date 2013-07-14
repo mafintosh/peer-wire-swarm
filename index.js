@@ -1,5 +1,6 @@
 var net = require('net');
 var fifo = require('fifo');
+var once = require('once');
 var peerWireProtocol = require('peer-wire-protocol');
 var EventEmitter = require('events').EventEmitter;
 
@@ -254,10 +255,15 @@ Swarm.prototype._onwire = function(connection, wire) {
 		self.emit('upload', uploaded);
 	});
 
-	wire.on('end', function() {
+	var cleanup = once(function() {
 		self.wires.splice(self.wires.indexOf(wire), 1);
 		connection.destroy();
 	});
+
+	connection.on('close', cleanup);
+	connection.on('error', cleanup);
+	connection.on('end', cleanup);
+	wire.on('end', cleanup);
 
 	this.wires.push(wire);
 	this.emit('wire', wire, connection);
