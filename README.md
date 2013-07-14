@@ -1,6 +1,6 @@
 # peer-wire-swarm
 
-a peer swarm implementation that uses the torrent DHT to find peers
+a peer swarm implementation
 
 	npm install peer-wire-swarm
 
@@ -21,5 +21,6 @@ swarm.on('wire', function(wire) {
 	swarm.wires // <- list of all connected wires
 });
 
-swarm.listen();
+swarm.add('127.0.0.1:42442'); // add a peer
+swarm.remove('127.0.0.1:42244'); // remove a peer
 ```
