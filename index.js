@@ -5,7 +5,7 @@ var peerWireProtocol = require('peer-wire-protocol');
 var EventEmitter = require('events').EventEmitter;
 
 var HANDSHAKE_TIMEOUT = 5000;
-var RECONNECT_TIMEOUT = 5000;
+var RECONNECT_WAIT = [1000, 5000, 15000, 30000, 60000, 120000, 300000, 600000];
 var DEFAULT_SIZE = 100;
 
 var toBuffer = function(str, encoding) {
@@ -115,37 +115,56 @@ var Swarm = function(infoHash, peerId, options) {
 	this.uploaded = 0;
 	this.connections = [];
 	this.wires = [];
+	this.paused = false;
 
 	this._destroyed = false;
-	this._queue = fifo();
+	this._queues = [fifo()];
 	this._peers = {};
 };
 
 Swarm.prototype.__proto__ = EventEmitter.prototype;
 
 Swarm.prototype.__defineGetter__('queued', function() {
-	return this._queue.length;
+	return this._queues.reduce(function(prev, queue) {
+		return prev + queue.length;
+	}, 0);
 });
 
-Swarm.prototype.prioritize = function(addr, bool) {
-	if (addr && typeof addr === 'object') return this.prioritize(addr.remoteAddress);
-	if (!this._peers[addr]) return;
-	this._peers[addr].priority = bool !== false;
+Swarm.prototype.pause = function() {
+	this.paused = true;
 };
 
-Swarm.prototype.unprioritize = function(addr) {
-	this.prioritize(addr, false);
+Swarm.prototype.resume = function() {
+	this.paused = false;
+	this._drain();
+};
+
+Swarm.prototype.priority = function(addr, level) {
+	addr = toAddress(addr);
+	var peer = this._peers[addr];
+
+	if (!peer) return 0;
+	if (typeof level !== 'number' || peer.priority === level) return level;
+
+	if (!this._queues[level]) this._queues[level] = fifo();
+
+	if (peer.node) {
+		this._queues[peer.priority].remove(peer.node);
+		peer.node = this._queues[level].push(addr);
+	}
+
+	return peer.priority = level;
 };
 
 Swarm.prototype.add = function(addr) {
 	if (this._destroyed || this._peers[addr]) return;
 
 	this._peers[addr] = {
-		node: this._queue.push(addr),
+		node: this._queues[0].push(addr),
 		wire: null,
 		timeout: null,
 		reconnect: false,
-		priority: false,
+		priority: 0,
 		retries: 0,
 	};
 
@@ -181,24 +200,27 @@ Swarm.prototype._remove = function(addr) {
 	var peer = this._peers[addr];
 	if (!peer) return;
 	delete this._peers[addr];
-	this._queue.remove(peer.node);
+	if (peer.node) this._queues[peer.priority].remove(peer.node);
 	if (peer.timeout) clearTimeout(peer.timeout);
 	if (peer.wire) peer.wire.destroy();
 };
 
 Swarm.prototype._drain = function() {
-	if (this.connections.length >= this.size) return;
-	if (!this._queue.length) return;
+	if (this.connections.length >= this.size || this.paused) return;
 
 	var self = this;
-	var addr = this._queue.shift();
-	var peer = this._peers[addr];
+	var addr = this._shift();
+	if (!addr) return;
 
+	var peer = this._peers[addr];
 	if (!peer) return;
 
 	var parts = addr.split(':');
 	var connection = net.connect(parts[1], parts[0]);
 	if (peer.timeout) clearTimeout(peer.timeout);
+
+	peer.node = null;
+	peer.timeout = null;
 
 	var wire = onwire(connection, function(infoHash) {
 		if (infoHash.toString('hex') !== self.infoHash.toString('hex')) return connection.destroy();
@@ -208,13 +230,14 @@ Swarm.prototype._drain = function() {
 	});
 
 	var repush = function() {
-		peer.node = peer.priority ? self._queue.unshift(addr) : self._queue.push(addr);
+		peer.node = self._queues[peer.priority].push(addr);
 		self._drain();
 	};
 
 	wire.on('end', function() {
-		if (!peer.reconnect || self._destroyed) return self._remove(addr);
-		peer.timeout = setTimeout(repush, peer.retries++ * RECONNECT_TIMEOUT);
+		peer.wire = null;
+		if (!peer.reconnect || self._destroyed || peer.retries >= RECONNECT_WAIT.length) return self._remove(addr);
+		peer.timeout = setTimeout(repush, RECONNECT_WAIT[peer.retries++]);
 	});
 
 	peer.wire = wire;
@@ -222,6 +245,13 @@ Swarm.prototype._drain = function() {
 
 	wire.remoteAddress = addr;
 	wire.handshake(this.infoHash, this.peerId);
+};
+
+Swarm.prototype._shift = function() {
+	for (var i = this._queues.length-1; i >= 0; i--) {
+		if (this._queues[i] && this._queues[i].length) return this._queues[i].shift();
+	}
+	return null;
 };
 
 Swarm.prototype._onincoming = function(connection, wire) {
@@ -265,6 +295,8 @@ Swarm.prototype._onwire = function(connection, wire) {
 	connection.on('error', cleanup);
 	connection.on('end', cleanup);
 	wire.on('end', cleanup);
+	wire.on('close', cleanup);
+	wire.on('finish', cleanup);
 
 	this.wires.push(wire);
 	this.emit('wire', wire, connection);
