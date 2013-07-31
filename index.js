@@ -3,6 +3,7 @@ var fifo = require('fifo');
 var once = require('once');
 var peerWireProtocol = require('peer-wire-protocol');
 var EventEmitter = require('events').EventEmitter;
+var util = require('util');
 
 var HANDSHAKE_TIMEOUT = 5000;
 var RECONNECT_WAIT = [1000, 5000, 15000, 30000, 60000, 120000, 300000, 600000];
@@ -122,7 +123,7 @@ var Swarm = function(infoHash, peerId, options) {
 	this._peers = {};
 };
 
-Swarm.prototype.__proto__ = EventEmitter.prototype;
+util.inherits(Swarm, EventEmitter);
 
 Swarm.prototype.__defineGetter__('queued', function() {
 	return this._queues.reduce(function(prev, queue) {
