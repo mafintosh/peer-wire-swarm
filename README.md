@@ -1,10 +1,10 @@
 # peer-wire-swarm
 
-a peer swarm implementation
+Swarm implementation for Bittorrent
 
 	npm install peer-wire-swarm
 
-# usage
+# Usage
 
 ``` js
 var wireSwarm = require('peer-wire-swarm');
