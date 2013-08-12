@@ -23,4 +23,7 @@ swarm.on('wire', function(wire) {
 
 swarm.add('127.0.0.1:42442'); // add a peer
 swarm.remove('127.0.0.1:42244'); // remove a peer
+
+swarm.pause();  // pause the swarm (stops adding connections)
+swarm.resume(); // resume the swarms
 ```
