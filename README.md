@@ -29,3 +29,7 @@ swarm.resume(); // resume the swarms
 
 swarm.listen(6881); // listen for incoming connections (optional)
 ```
+
+## License
+
+MIT
