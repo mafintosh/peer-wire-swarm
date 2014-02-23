@@ -1,6 +1,6 @@
 {
   "name": "peer-wire-swarm",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "a peer swarm implementation",
   "dependencies": {
     "peer-wire-protocol": "~0.4.0",
