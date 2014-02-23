@@ -10,6 +10,11 @@ var MAX_NODES = 5000;
 var TIMEOUT = 5000;
 var MAX_PARALLEL = 10;
 
+var validAddr = function(addr) {
+	var port = Number(addr.split(':')[1]);
+	return port > 0 && port < 65535;
+};
+
 var randomId = function() {
 	var bytes = crypto.randomBytes(2000);
 	var offset = 0;
@@ -27,7 +32,7 @@ var parseNodeInfo = function(compact) {
 		for (var i = 0; i < compact.length; i += 26) {
 			nodes.push(compact2string(compact.slice(i+20, i+26)));
 		}
-		return nodes;
+		return nodes.filter(validAddr);
 	} catch(err) {
 		return [];
 	}
@@ -35,7 +40,7 @@ var parseNodeInfo = function(compact) {
 
 var parsePeerInfo = function(list) {
 	try {
-		return list.map(compact2string);
+		return list.map(compact2string).filter(validAddr);
 	} catch (err) {
 		return [];
 	}
