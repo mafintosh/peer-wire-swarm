@@ -160,6 +160,9 @@ Swarm.prototype.priority = function(addr, level) {
 Swarm.prototype.add = function(addr) {
 	if (this._destroyed || this._peers[addr]) return;
 
+	var port = Number(addr.split(':')[1]);
+	if (!(port > 0 && port < 65535)) return;
+
 	this._peers[addr] = {
 		node: this._queues[0].push(addr),
 		wire: null,
