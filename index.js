@@ -15,7 +15,7 @@ var toBuffer = function(str, encoding) {
 
 var toAddress = function(wire) {
 	if (typeof wire === 'string') return wire;
-	return wire.remoteAddress;
+	return wire.peerAddress;
 };
 
 var onwire = function(connection, onhandshake) {
@@ -247,7 +247,7 @@ Swarm.prototype._drain = function() {
 	peer.wire = wire;
 	self._onconnection(connection);
 
-	wire.remoteAddress = addr;
+	wire.peerAddress = addr;
 	wire.handshake(this.infoHash, this.peerId);
 };
 
@@ -259,7 +259,7 @@ Swarm.prototype._shift = function() {
 };
 
 Swarm.prototype._onincoming = function(connection, wire) {
-	wire.remoteAddress = connection.address().address + ':' + connection.address().port;
+	wire.peerAddress = connection.address().address + ':' + connection.address().port;
 	wire.handshake(this.infoHash, this.peerId);
 
 	this._onconnection(connection);
