@@ -1,6 +1,7 @@
 var net = require('net');
 var fifo = require('fifo');
 var once = require('once');
+var speedometer = require('speedometer');
 var peerWireProtocol = require('peer-wire-protocol');
 var EventEmitter = require('events').EventEmitter;
 var util = require('util');
@@ -117,6 +118,12 @@ var Swarm = function(infoHash, peerId, options) {
 	this.connections = [];
 	this.wires = [];
 	this.paused = false;
+
+	this.uploaded = 0;
+	this.downloaded = 0;
+
+	this.downloadSpeed = speedometer();
+	this.uploadSpeed = speedometer();
 
 	this._destroyed = false;
 	this._queues = [fifo()];
@@ -237,6 +244,16 @@ Swarm.prototype._drain = function() {
 		peer.node = self._queues[peer.priority].push(addr);
 		self._drain();
 	};
+
+	wire.on('upload', function(length) {
+		self.uploaded += length;
+		self.uploadSpeed(length);
+	});
+
+	wire.on('download', function(length) {
+		self.downloaded += length;
+		self.downloadSpeed(length);
+	});
 
 	wire.on('end', function() {
 		peer.wire = null;
