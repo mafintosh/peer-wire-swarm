@@ -245,16 +245,6 @@ Swarm.prototype._drain = function() {
 		self._drain();
 	};
 
-	wire.on('upload', function(length) {
-		self.uploaded += length;
-		self.uploadSpeed(length);
-	});
-
-	wire.on('download', function(length) {
-		self.downloaded += length;
-		self.downloadSpeed(length);
-	});
-
 	wire.on('end', function() {
 		peer.wire = null;
 		if (!peer.reconnect || self._destroyed || peer.retries >= RECONNECT_WAIT.length) return self._remove(addr);
@@ -299,11 +289,13 @@ Swarm.prototype._onwire = function(connection, wire) {
 
 	wire.on('download', function(downloaded) {
 		self.downloaded += downloaded;
+		self.downloadSpeed(downloaded);
 		self.emit('download', downloaded);
 	});
 
 	wire.on('upload', function(uploaded) {
 		self.uploaded += uploaded;
+		self.uploadSpeed(uploaded);
 		self.emit('upload', uploaded);
 	});
 
