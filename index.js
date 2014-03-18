@@ -1,3 +1,8 @@
+(function() {
+"use strict";
+
+
+
 var net = require('net');
 var fifo = require('fifo');
 var once = require('once');
@@ -106,6 +111,7 @@ var Swarm = function(infoHash, peerId, options) {
 	EventEmitter.call(this);
 
 	options = options || {};
+	this.handshake_options = options.handshake_options;
 
 	this.port = 0;
 	this.size = options.size || DEFAULT_SIZE;
@@ -255,7 +261,7 @@ Swarm.prototype._drain = function() {
 	self._onconnection(connection);
 
 	wire.peerAddress = addr;
-	wire.handshake(this.infoHash, this.peerId);
+	wire.handshake(this.infoHash, this.peerId, this.handshake_options);
 };
 
 Swarm.prototype._shift = function() {
@@ -267,7 +273,7 @@ Swarm.prototype._shift = function() {
 
 Swarm.prototype._onincoming = function(connection, wire) {
 	wire.peerAddress = connection.address().address + ':' + connection.address().port;
-	wire.handshake(this.infoHash, this.peerId);
+	wire.handshake(this.infoHash, this.peerId, this.handshake_options);
 
 	this._onconnection(connection);
 	this._onwire(connection, wire);
@@ -316,3 +322,5 @@ Swarm.prototype._onwire = function(connection, wire) {
 };
 
 module.exports = Swarm;
+
+})();
