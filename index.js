@@ -29,7 +29,7 @@ var onwire = function(connection, onhandshake) {
 		connection.destroy();
 	});
 	connection.on('close', function() {
-		wire.end();
+		wire.destroy();
 	});
 
 	var destroy = function() {
