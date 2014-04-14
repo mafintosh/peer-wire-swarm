@@ -19,7 +19,7 @@ var toAddress = function(wire) {
 	return wire.peerAddress;
 };
 
-var onwire = function(connection, onhandshake) {
+var onwire = function(swarm, connection, onhandshake) {
 	var wire = peerWireProtocol();
 
 	connection.on('end', function() {
@@ -35,7 +35,7 @@ var onwire = function(connection, onhandshake) {
 	var destroy = function() {
 		connection.destroy();
 	};
-	var timeout = setTimeout(destroy, HANDSHAKE_TIMEOUT);
+	var timeout = setTimeout(destroy, swarm.timeout);
 
 	wire.once('handshake', function(infoHash, peerId) {
 		clearTimeout(timeout);
@@ -63,7 +63,7 @@ var join = function(port, swarm) {
 	if (!pool) {
 		var swarms = {};
 		var server = net.createServer(function(connection) {
-			var wire = onwire(connection, function(infoHash, peerId) {
+			var wire = onwire(swarm, connection, function(infoHash, peerId) {
 				var swarm = swarms[infoHash.toString('hex')];
 				if (!swarm) return connection.destroy();
 				swarm._onincoming(connection, wire);
@@ -110,6 +110,7 @@ var Swarm = function(infoHash, peerId, options) {
 
 	this.port = 0;
 	this.size = options.size || DEFAULT_SIZE;
+	this.timeout = options.timeout || HANDSHAKE_TIMEOUT;
 
 	this.infoHash = toBuffer(infoHash, 'hex');
 	this.peerId = toBuffer(peerId, 'utf-8');
@@ -234,7 +235,7 @@ Swarm.prototype._drain = function() {
 	peer.node = null;
 	peer.timeout = null;
 
-	var wire = onwire(connection, function(infoHash) {
+	var wire = onwire(swarm, connection, function(infoHash) {
 		if (infoHash.toString('hex') !== self.infoHash.toString('hex')) return connection.destroy();
 		peer.reconnect = true;
 		peer.retries = 0;
