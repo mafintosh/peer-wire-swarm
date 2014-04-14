@@ -1,6 +1,6 @@
 {
   "name": "peer-wire-swarm",
-  "version": "0.7.2",
+  "version": "0.8.0",
   "description": "a peer swarm implementation",
   "repository": "git://github.com/mafintosh/peer-wire-swarm.git",
   "dependencies": {
