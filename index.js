@@ -36,6 +36,7 @@ var onwire = function(swarm, connection, onhandshake) {
 		connection.destroy();
 	};
 	var timeout = setTimeout(destroy, swarm.timeout);
+	if (timeout.unref) timeout.unref();
 
 	wire.once('handshake', function(infoHash, peerId) {
 		clearTimeout(timeout);
