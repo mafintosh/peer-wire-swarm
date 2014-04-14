@@ -236,7 +236,7 @@ Swarm.prototype._drain = function() {
 	peer.node = null;
 	peer.timeout = null;
 
-	var wire = onwire(swarm, connection, function(infoHash) {
+	var wire = onwire(this, connection, function(infoHash) {
 		if (infoHash.toString('hex') !== self.infoHash.toString('hex')) return connection.destroy();
 		peer.reconnect = true;
 		peer.retries = 0;
