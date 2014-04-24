@@ -22,7 +22,7 @@ var toAddress = function(wire) {
 
 var onwire = function(swarm, connection, onhandshake) {
 	var wire = peerWireProtocol();
-	var connTimeout = setTimeout(destroy, swarm.connect_timeout);
+	var connTimeout = setTimeout(destroy, swarm.connectTimeout);
 
 	connection.on('connect', function() {
 		clearTimeout(connTimeout);
@@ -118,7 +118,7 @@ var Swarm = function(infoHash, peerId, options) {
 	this.port = 0;
 	this.size = options.size || DEFAULT_SIZE;
 	this.timeout = options.timeout || HANDSHAKE_TIMEOUT;
-	this.connect_timeout = options.connect_timeout || CONNECTION_TIMEOUT;
+	this.connectTimeout = options.connectTimeout || CONNECTION_TIMEOUT;
 	
 	this.infoHash = toBuffer(infoHash, 'hex');
 	this.peerId = toBuffer(peerId, 'utf-8');
