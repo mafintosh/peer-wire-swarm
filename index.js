@@ -7,6 +7,7 @@ var EventEmitter = require('events').EventEmitter;
 var util = require('util');
 
 var HANDSHAKE_TIMEOUT = 25000;
+var CONNECTION_TIMEOUT = 3000;
 var RECONNECT_WAIT = [1000, 5000, 15000, 30000, 60000, 120000, 300000, 600000];
 var DEFAULT_SIZE = 100;
 
@@ -21,9 +22,14 @@ var toAddress = function(wire) {
 
 var onwire = function(swarm, connection, onhandshake) {
 	var wire = peerWireProtocol();
+	var connTimeout = setTimeout(destroy, swarm.connectTimeout);
 
+	connection.on('connect', function() {
+		clearTimeout(connTimeout);
+	});
 	connection.on('end', function() {
 		connection.destroy();
+		clearTimeout(connTimeout);
 	});
 	connection.on('error', function() {
 		connection.destroy();
@@ -112,7 +118,8 @@ var Swarm = function(infoHash, peerId, options) {
 	this.port = 0;
 	this.size = options.size || DEFAULT_SIZE;
 	this.timeout = options.timeout || HANDSHAKE_TIMEOUT;
-
+	this.connectTimeout = options.connectTimeout || CONNECTION_TIMEOUT;
+	
 	this.infoHash = toBuffer(infoHash, 'hex');
 	this.peerId = toBuffer(peerId, 'utf-8');
 
