@@ -22,31 +22,38 @@ var toAddress = function(wire) {
 
 var onwire = function(swarm, connection, onhandshake) {
 	var wire = peerWireProtocol();
-	var connTimeout = setTimeout(destroy, swarm.connectTimeout);
-
-	connection.on('connect', function() {
-		clearTimeout(connTimeout);
-	});
-	connection.on('end', function() {
-		connection.destroy();
-		clearTimeout(connTimeout);
-	});
-	connection.on('error', function() {
-		connection.destroy();
-	});
-	connection.on('close', function() {
-		wire.destroy();
-	});
 
 	var destroy = function() {
 		connection.destroy();
 	};
-	var timeout = setTimeout(destroy, swarm.timeout);
-	if (timeout.unref) timeout.unref();
+
+	var connectTimeout = setTimeout(destroy, swarm.connectTimeout);
+	var handshakeTimeout = setTimeout(destroy, swarm.handshakeTimeout);
+
+	if (handshakeTimeout.unref) handshakeTimeout.unref();
+	if (connectTimeout.unref) connectTimeout.unref();
+
+	connection.on('connect', function() {
+		clearTimeout(connectTimeout);
+	});
 
 	wire.once('handshake', function(infoHash, peerId) {
-		clearTimeout(timeout);
+		clearTimeout(handshakeTimeout);
 		onhandshake(infoHash, peerId);
+	});
+
+	connection.on('end', function() {
+		connection.destroy();
+	});
+
+	connection.on('error', function() {
+		connection.destroy();
+	});
+
+	connection.on('close', function() {
+		clearTimeout(connectTimeout);
+		clearTimeout(handshakeTimeout);
+		wire.destroy();
 	});
 
 	connection.pipe(wire).pipe(connection);
@@ -117,7 +124,7 @@ var Swarm = function(infoHash, peerId, options) {
 
 	this.port = 0;
 	this.size = options.size || DEFAULT_SIZE;
-	this.timeout = options.timeout || HANDSHAKE_TIMEOUT;
+	this.handshakeTimeout = options.handshakeTimeout || HANDSHAKE_TIMEOUT;
 	this.connectTimeout = options.connectTimeout || CONNECTION_TIMEOUT;
 	
 	this.infoHash = toBuffer(infoHash, 'hex');
