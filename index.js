@@ -21,7 +21,7 @@ var toAddress = function(wire) {
 };
 
 var onwire = function(swarm, connection, onhandshake) {
-	var wire = peerWireProtocol();
+	var wire = peerWireProtocol(swarm._pwp);
 
 	var destroy = function() {
 		connection.destroy();
@@ -145,6 +145,7 @@ var Swarm = function(infoHash, peerId, options) {
 	this._destroyed = false;
 	this._queues = [fifo()];
 	this._peers = {};
+	this._pwp = {speed:options.speed};
 };
 
 util.inherits(Swarm, EventEmitter);
