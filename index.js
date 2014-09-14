@@ -20,14 +20,14 @@ var toAddress = function(wire) {
 	return wire.peerAddress;
 };
 
-var onwire = function(swarm, connection, onhandshake) {
+var onwire = function(swarm, connection, onhandshake, isServer) {
 	var wire = peerWireProtocol(swarm._pwp);
 
 	var destroy = function() {
 		connection.destroy();
 	};
 
-	var connectTimeout = setTimeout(destroy, swarm.connectTimeout);
+	var connectTimeout = !isServer && setTimeout(destroy, swarm.connectTimeout);
 	var handshakeTimeout = setTimeout(destroy, swarm.handshakeTimeout);
 
 	if (handshakeTimeout.unref) handshakeTimeout.unref();
@@ -81,7 +81,7 @@ var join = function(port, swarm) {
 				var swarm = swarms[infoHash.toString('hex')];
 				if (!swarm) return connection.destroy();
 				swarm._onincoming(connection, wire);
-			});
+			}, true);
 		});
 
 		server.listen(port, function() {
