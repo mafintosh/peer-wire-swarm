@@ -1,3 +1,4 @@
+var utp = require('utp');
 var net = require('net');
 var fifo = require('fifo');
 var once = require('once');
@@ -25,6 +26,7 @@ var onwire = function(swarm, connection, onhandshake, isServer) {
 
 	var destroy = function() {
 		connection.destroy();
+		connection.emit('timeout');
 	};
 
 	var connectTimeout = !isServer && setTimeout(destroy, swarm.connectTimeout);
@@ -67,7 +69,9 @@ var leave = function(port, swarm) {
 	delete pools[port].swarms[swarm.infoHash.toString('hex')];
 
 	if (Object.keys(pools[port].swarms).length) return;
-	pools[port].server.close();
+	pools[port].servers.forEach(function(server) {
+		server.close();
+	});
 	delete pools[port];
 };
 
@@ -76,23 +80,37 @@ var join = function(port, swarm) {
 
 	if (!pool) {
 		var swarms = {};
-		var server = net.createServer(function(connection) {
+		var servers = [];
+
+		servers.push(net.createServer(function(connection) {
 			var wire = onwire(swarm, connection, function(infoHash, peerId) {
 				var swarm = swarms[infoHash.toString('hex')];
 				if (!swarm) return connection.destroy();
 				swarm._onincoming(connection, wire);
 			}, true);
-		});
+		}));
 
-		server.listen(port, function() {
-			pool.listening = true;
-			Object.keys(swarms).forEach(function(infoHash) {
-				swarms[infoHash].emit('listening');
+		if(swarm.utp) {
+			servers.push(utp.createServer(function(connection) {
+				var wire = onwire(swarm, connection, function(infoHash, peerId) {
+					var swarm = swarms[infoHash.toString('hex')];
+					if (!swarm) return connection.destroy();
+					swarm._onincoming(connection, wire);
+				}, true);
+			}));
+		}
+
+		servers.forEach(function(server) {
+			server.listen(port, function() {
+				pool.listening = true;
+				Object.keys(swarms).forEach(function(infoHash) {
+					swarms[infoHash].emit('listening');
+				});
 			});
-		});
+		})
 
 		pool = pools[port] = {
-			server: server,
+			servers: servers,
 			swarms: swarms,
 			listening: false
 		};
@@ -124,6 +142,7 @@ var Swarm = function(infoHash, peerId, options) {
 
 	this.port = 0;
 	this.size = options.size || DEFAULT_SIZE;
+	this.utp = options.utp || true;
 	this.handshakeTimeout = options.handshakeTimeout || HANDSHAKE_TIMEOUT;
 	this.connectTimeout = options.connectTimeout || CONNECTION_TIMEOUT;
 	
@@ -195,6 +214,7 @@ Swarm.prototype.add = function(addr) {
 		reconnect: false,
 		priority: 0,
 		retries: 0,
+		noUtp: false,
 	};
 
 	this._drain();
@@ -244,8 +264,26 @@ Swarm.prototype._drain = function() {
 	var peer = this._peers[addr];
 	if (!peer) return;
 
+	var repush = function() {
+		peer.node = self._queues[peer.priority].push(addr);
+		self._drain();
+	};
+
 	var parts = addr.split(':');
-	var connection = net.connect(parts[1], parts[0]);
+	var connection;
+
+	if(this.utp && !peer.noUtp) {
+		connection = utp.connect(parts[1], parts[0]);
+		connection.on('timeout', function() {
+			// Unable to connect to peer with uTP
+			// Assume it doesn't support it.
+			peer.noUtp = true;
+			repush();
+		});
+	} else {
+		connection = net.connect(parts[1], parts[0]);
+	}
+
 	if (peer.timeout) clearTimeout(peer.timeout);
 
 	peer.node = null;
@@ -257,11 +295,6 @@ Swarm.prototype._drain = function() {
 		peer.retries = 0;
 		self._onwire(connection, wire);
 	});
-
-	var repush = function() {
-		peer.node = self._queues[peer.priority].push(addr);
-		self._drain();
-	};
 
 	wire.on('end', function() {
 		peer.wire = null;
