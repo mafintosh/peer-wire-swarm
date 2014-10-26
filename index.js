@@ -142,7 +142,7 @@ var Swarm = function(infoHash, peerId, options) {
 
 	this.port = 0;
 	this.size = options.size || DEFAULT_SIZE;
-	this.utp = options.utp || true;
+	this.utp = options.utp || false;
 	this.handshakeTimeout = options.handshakeTimeout || HANDSHAKE_TIMEOUT;
 	this.connectTimeout = options.connectTimeout || CONNECTION_TIMEOUT;
 	
