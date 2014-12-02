@@ -82,32 +82,26 @@ var join = function(port, swarm) {
 		var swarms = {};
 		var servers = [];
 
-		servers.push(net.createServer(function(connection) {
+		var onconnection = function(connection) {
 			var wire = onwire(swarm, connection, function(infoHash, peerId) {
 				var swarm = swarms[infoHash.toString('hex')];
 				if (!swarm) return connection.destroy();
 				swarm._onincoming(connection, wire);
 			}, true);
-		}));
-
-		if(swarm.utp) {
-			servers.push(utp.createServer(function(connection) {
-				var wire = onwire(swarm, connection, function(infoHash, peerId) {
-					var swarm = swarms[infoHash.toString('hex')];
-					if (!swarm) return connection.destroy();
-					swarm._onincoming(connection, wire);
-				}, true);
-			}));
 		}
 
-		servers.forEach(function(server) {
-			server.listen(port, function() {
-				pool.listening = true;
-				Object.keys(swarms).forEach(function(infoHash) {
-					swarms[infoHash].emit('listening');
-				});
+		servers.push(net.createServer(onconnection));
+		if (swarm.utp) servers.push(utp.createServer(onconnection));
+
+		var loop = function(i) {
+			if (i < servers.length) return servers[i].listen(port, loop.bind(null, i+1))
+			pool.listening = true;
+			Object.keys(swarms).forEach(function(infoHash) {
+				swarms[infoHash].emit('listening');
 			});
-		})
+		}
+
+		loop(0)
 
 		pool = pools[port] = {
 			servers: servers,
