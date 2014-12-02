@@ -4,9 +4,10 @@
   "description": "a peer swarm implementation",
   "repository": "git://github.com/mafintosh/peer-wire-swarm.git",
   "dependencies": {
-    "peer-wire-protocol": "^0.7.0",
     "fifo": "^0.1.4",
     "once": "^1.1.1",
-    "speedometer": "^0.1.2"
+    "peer-wire-protocol": "^0.7.0",
+    "speedometer": "^0.1.2",
+    "utp": "0.0.7"
   }
 }
