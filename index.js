@@ -9,7 +9,7 @@ var util = require('util');
 
 var HANDSHAKE_TIMEOUT = 25000;
 var CONNECTION_TIMEOUT = 3000;
-var RECONNECT_WAIT = [1000, 5000, 15000, 30000, 60000, 120000, 300000, 600000];
+var RECONNECT_WAIT = [1000, 5000, 15000];
 var DEFAULT_SIZE = 100;
 
 var toBuffer = function(str, encoding) {
