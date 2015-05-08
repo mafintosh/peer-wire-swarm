@@ -174,6 +174,7 @@ Swarm.prototype.pause = function() {
 };
 
 Swarm.prototype.resume = function() {
+	if (this.paused) this.reconnectAll();
 	this.paused = false;
 	this._drain();
 };
@@ -236,6 +237,18 @@ Swarm.prototype.destroy = function() {
 	leave(this.port, this);
 	process.nextTick(function() {
 		self.emit('close');
+	});
+};
+
+Swarm.prototype.reconnectAll = function() {
+	var self = this;
+	Object.keys(this._peers).forEach(function(addr) {
+		var shouldReconnect = true;
+		for (var i = 0; self.wires[i]; i++) if (self.wires[i].peerAddress == addr) { shouldReconnect = false; break; }
+		if (shouldReconnect) {
+			self._remove(addr);
+			self.add(addr);
+		}
 	});
 };
 
