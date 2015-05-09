@@ -243,10 +243,10 @@ Swarm.prototype.destroy = function() {
 Swarm.prototype.reconnectAll = function() {
 	var self = this;
 	Object.keys(this._peers).forEach(function(addr) {
-		var shouldReconnect = self.wires.some(function (e) { if (e.peerAddress == addr) return true; });
-		if (shouldReconnect) {
-			self._remove(addr);
-			self.add(addr);
+		var isConnected = self.wires.some(function (e) { if (e.peerAddress == addr) return true; });
+ 		if (!isConnected) {
+ 			self._remove(addr);
+ 			self.add(addr);
 		}
 	});
 };
