@@ -290,7 +290,7 @@ Swarm.prototype._drain = function() {
 		self._onwire(connection, wire);
 	});
 
-	wire.on('end', function() {
+	wire.on('close', function() {
 		peer.wire = null;
 		if (!peer.reconnect || self._destroyed || peer.retries >= RECONNECT_WAIT.length) return self._remove(addr);
 		peer.timeout = setTimeout(repush, RECONNECT_WAIT[peer.retries++]);
