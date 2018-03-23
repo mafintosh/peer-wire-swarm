@@ -6,6 +6,7 @@ var speedometer = require('speedometer');
 var peerWireProtocol = require('peer-wire-protocol');
 var EventEmitter = require('events').EventEmitter;
 var util = require('util');
+var bufferFrom = require('buffer-from')
 
 var HANDSHAKE_TIMEOUT = 25000;
 var CONNECTION_TIMEOUT = 3000;
@@ -13,7 +14,7 @@ var RECONNECT_WAIT = [1000, 5000, 15000];
 var DEFAULT_SIZE = 100;
 
 var toBuffer = function(str, encoding) {
-	return Buffer.isBuffer(str) ? str : new Buffer(str, encoding);
+	return Buffer.isBuffer(str) ? str : bufferFrom(str, encoding);
 };
 
 var toAddress = function(wire) {
