@@ -1,6 +1,6 @@
 {
   "name": "peer-wire-swarm",
-  "version": "0.12.2",
+  "version": "0.12.3",
   "description": "a peer swarm implementation",
   "repository": "git://github.com/mafintosh/peer-wire-swarm.git",
   "dependencies": {
@@ -9,6 +9,6 @@
     "once": "^1.1.1",
     "peer-wire-protocol": "^0.7.0",
     "speedometer": "^0.1.2",
-    "utp": "0.0.7"
+    "utp": "^0.0.10"
   }
 }
