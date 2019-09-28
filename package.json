@@ -9,6 +9,6 @@
     "once": "^1.1.1",
     "peer-wire-protocol": "^0.7.0",
     "speedometer": "^0.1.2",
-    "utp": "0.0.7"
+    "utp": "^0.0.10"
   }
 }
